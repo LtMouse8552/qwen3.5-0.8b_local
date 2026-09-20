@@ -78,9 +78,14 @@
 
 <script>
 // 局域网/其他设备访问时改成运行 Ollama 的机器 IP，如 http://192.168.1.10:11434
-const API = location.hostname === "localhost" || location.hostname === "127.0.0.1"
-  ? "http://localhost:11434"
-  : `http://${location.hostname}:11434`;
+// 依次尝试的候选地址（本机通常 localhost 即可，若浏览器拦截再回退 127.0.0.1）
+const API_CANDIDATES = [
+  location.hostname === "localhost" || location.hostname === "127.0.0.1"
+    ? "http://localhost:11434"
+    : `http://${location.hostname}:11434`,
+  "http://127.0.0.1:11434",
+];
+let API = API_CANDIDATES[0];
 
 const MODEL = "qwen3.5:0.8B";
 const chatEl = document.getElementById("chat");
@@ -90,16 +95,24 @@ const statusEl = document.getElementById("status");
 const history = [];
 
 // ---------- 连接状态检测 ----------
+async function probe(base) {
+  const r = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(3000) });
+  return r.ok;
+}
+
 async function checkStatus() {
-  try {
-    const r = await fetch(`${API}/api/tags`, { signal: AbortSignal.timeout(3000) });
-    const ok = r.ok;
-    statusEl.className = "status " + (ok ? "online" : "offline");
-    statusEl.innerHTML = `<span class="dot"></span>${ok ? "已连接 Ollama" : "Ollama 未响应"}`;
-  } catch {
-    statusEl.className = "status offline";
-    statusEl.innerHTML = `<span class="dot"></span>Ollama 未运行`;
+  for (const base of API_CANDIDATES) {
+    try {
+      if (await probe(base)) {
+        API = base; // 记住可用的地址，聊天请求直接复用
+        statusEl.className = "status online";
+        statusEl.innerHTML = `<span class="dot"></span>已连接 Ollama（${base}）`;
+        return;
+      }
+    } catch { /* 尝试下一个候选地址 */ }
   }
+  statusEl.className = "status offline";
+  statusEl.innerHTML = `<span class="dot"></span>Ollama 未运行或被浏览器拦截`;
 }
 checkStatus();
 setInterval(checkStatus, 15000);
