@@ -3,7 +3,7 @@
 基于本地 Ollama 运行的 Qwen3.5:0.8B 聊天应用，包含三种形态：
 
 - **Streamlit 版**（`app.py`）：带 RAG 知识库（Chroma + 多语言 embedding），可导入 PDF/MD/TXT 文档
-- **静态网页版**（`docs/index.html`）：LocalRAG 暗色玻璃风格聊天页，带引用来源面板，可部署到 GitHub Pages 等静态托管
+- **Web 应用版**（`web/` 源码，构建产物在 `docs/`）：LocalRAG 暗色玻璃风格 React 应用，流式输出 + 思考过程展示，可部署到 GitHub Pages 等静态托管
 - **API**：Ollama 原生接口（兼容 OpenAI `/v1/chat/completions` 格式）
 
 ## 快速开始（本机）
@@ -21,7 +21,16 @@
    streamlit run app.py
    ```
 
-3. 或直接用浏览器打开 `docs/index.html`（需 Ollama 在本机运行）。
+3. 或直接部署/打开 `docs/` 下的网页版（需 Ollama 在本机运行，且启动时设置 `OLLAMA_ORIGINS=*` 以允许跨域）。
+
+### 网页版开发（可选）
+
+```bash
+cd web
+npm install
+npm run dev     # 本地开发 http://127.0.0.1:5173
+npm run build   # 构建产物输出到 ../docs/
+```
 
 ## 局域网访问
 
@@ -79,7 +88,8 @@
 
 ```
 app.py                 # Streamlit 应用（RAG 知识库 + 聊天）
-docs/index.html        # 静态网页聊天版（可部署 GitHub Pages）
+web/                   # Web 应用 React 源码（Vite + Tailwind + Zustand）
+docs/                  # Web 构建产物（可部署 GitHub Pages）
 download_embedding.py  # 下载多语言 embedding 模型
 datas/                 # 知识库原始文档
 vectors/               # Chroma 向量库（本地生成，不入库）
