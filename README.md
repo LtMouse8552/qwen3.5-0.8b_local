@@ -1,97 +1,81 @@
-# Qwen3.5 本地聊天应用
+# Qwen3.5 Chat — 本地大模型聊天助手
 
-基于本地 Ollama 运行的 Qwen3.5:0.8B 聊天应用，包含三种形态：
+基于 **Ollama + Streamlit** 的本地大模型聊天应用，内置 **RAG 知识库**：把文档放进 `datas/` 目录即可基于资料问答，数据完全留在本机。
 
-- **Streamlit 版**（`app.py`）：带 RAG 知识库（Chroma + 多语言 embedding），可导入 PDF/MD/TXT 文档
-- **Web 应用版**（`web/` 源码，构建产物在 `docs/`）：LocalRAG 暗色玻璃风格 React 应用，流式输出 + 思考过程展示，可部署到 GitHub Pages 等静态托管
-- **API**：Ollama 原生接口（兼容 OpenAI `/v1/chat/completions` 格式）
+配套前端 `web/` 为深色科技风 + 液态玻璃 UI（与 LocalRAG 同源界面），构建产物输出到 `docs/`，可直接通过 GitHub Pages 访问。
 
-## 快速开始（本机）
+## ✨ 功能特点
 
-1. 安装 [Ollama](https://ollama.com) 并拉取模型：
+- 💬 **流式对话**：调用 Ollama `/api/chat` 逐段输出，自动跳过模型思考部分
+- 📚 **RAG 知识库**：加载 `datas/` 下的 PDF / Markdown / TXT，切片向量化存入 Chroma，回答基于资料生成
+- 🧠 **本地 Embedding**：使用 `paraphrase-multilingual-MiniLM-L12-v2` 多语言向量模型，离线运行
+- 🖥 **Web 前端**：React 18 + TypeScript + Vite + Tailwind 液态玻璃界面（流式回复、引用溯源、快捷键）
+- 🪟 **Windows 一键脚本**：`start_ollama.bat` 启动 Ollama 并监听 `0.0.0.0`，局域网内其他设备可访问
 
-   ```bash
-   ollama pull qwen3.5:0.8B
-   ```
+## 🗂 目录结构
 
-2. 启动 Streamlit 应用：
+```
+├── app.py                 # Streamlit 后端：聊天 + RAG 知识库
+├── download_embedding.py  # 从 ModelScope 下载 Embedding 模型
+├── start_ollama.bat       # Windows 启动 Ollama（监听所有网卡）
+├── datas/                 # 知识库文档目录（PDF / MD / TXT）
+├── vectors/               # Chroma 向量库存储
+├── models/                # 本地 Embedding 模型
+├── web/                   # React 前端源码
+└── docs/                  # 前端构建产物（GitHub Pages）
+```
 
-   ```bash
-   pip install -r requirements.txt   # 如无则按 import 手动安装
-   streamlit run app.py
-   ```
+## 🚀 快速开始
 
-3. 或直接部署/打开 `docs/` 下的网页版（需 Ollama 在本机运行，且启动时设置 `OLLAMA_ORIGINS=*` 以允许跨域）。
+### 1. 准备环境
 
-### 网页版开发（可选）
+- 安装 [Ollama](https://ollama.com/) 并拉取模型：
+  ```bash
+  ollama pull qwen3.5:0.8B
+  ```
+- 安装 Python 依赖：
+  ```bash
+  pip install streamlit requests langchain-community langchain-huggingface langchain-text-splitters chromadb pymupdf
+  ```
+
+### 2. 下载 Embedding 模型（国内走 ModelScope）
+
+```bash
+python download_embedding.py
+```
+
+### 3. 放入知识库文档
+
+将 PDF / Markdown / TXT 文档放入 `datas/` 目录。
+
+### 4. 启动
+
+```bash
+# Windows：先启动 Ollama（局域网可访问）
+start_ollama.bat
+
+# 启动聊天应用
+streamlit run app.py
+# 访问 http://localhost:8501
+```
+
+### 5. （可选）前端
 
 ```bash
 cd web
 npm install
-npm run dev     # 本地开发 http://127.0.0.1:5173
-npm run build   # 构建产物输出到 ../docs/
+npm run dev      # 开发调试
+npm run build    # 构建输出
 ```
 
-## 局域网访问
+## 🔧 可配置项
 
-1. 双击 `start_ollama.bat`（或设置环境变量 `OLLAMA_HOST=0.0.0.0` 后启动 Ollama），使 Ollama 监听所有网卡。
-2. 查询本机内网 IP（`ipconfig`，如 `10.80.221.22`）。
-3. 局域网内其他设备：
-   - 网页版：打开 `http://<内网IP>:11434` 所在主机的 `docs/index.html`（页面会自动探测 `http://<主机IP>:11434`）
-   - API：`http://<内网IP>:11434/v1/chat/completions`
-   - Streamlit：`streamlit run app.py --server.address 0.0.0.0` 后访问 `http://<内网IP>:8501`
-4. 首次访问如被 Windows 防火墙拦截，需放行 Ollama/Python 的入站连接。
+| 配置 | 位置 | 默认值 |
+| --- | --- | --- |
+| Ollama 地址 | `app.py` `OLLAMA_URL` | `http://localhost:11434/api/chat` |
+| 模型名称 | `app.py` `MODEL_NAME` | `qwen3.5:0.8B` |
+| 最大生成长度 / 温度 | 界面侧栏调节 | — |
 
-## 公网访问（Cloudflare Tunnel 快速隧道）
+## 📄 许可证
 
-无需公网 IP、无需开放路由器端口：
-
-1. 下载 [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)，放到项目目录。
-
-2. 启动隧道（指向本机 Ollama）：
-
-   ```bash
-   cloudflared tunnel --url http://127.0.0.1:11434
-   ```
-
-   输出中会打印一个临时公网地址，例如：
-
-   ```
-   https://xxxx-yyyy-zzzz.trycloudflare.com
-   ```
-
-3. 验证可用：
-
-   ```bash
-   curl https://xxxx-yyyy-zzzz.trycloudflare.com/api/version
-   ```
-
-4. 把这个地址发给外部用户：
-   - 直接调 API（Ollama 原生格式）
-   - 或在任何支持自定义 OpenAI 接口的客户端填 `https://xxxx.trycloudflare.com/v1`
-
-> **注意**
-> - 快速隧道地址**每次重启都会变化**，重启后重新获取即可。
-> - 免费隧道**无鉴权**：任何拿到地址的人都能调用模型，甚至调用管理接口（删除模型等）。请勿公开发布地址；对外服务建议在前面加一层带 API Key 鉴权的网关。
-
-## 网页版部署到 GitHub Pages（对外提供常驻入口）
-
-`docs/` 目录可直接作为 GitHub Pages 站点：
-
-1. GitHub 仓库 → Settings → Pages → Source 选择 `main` 分支 `/docs` 目录。
-2. 访问 `https://<用户名>.github.io/<仓库名>/` 即得聊天页。
-3. 由于 GitHub Pages 是纯静态托管，页面本身不含模型服务：打开页面后**点击右上角连接状态栏**，填入你的 Ollama 公网地址（如上面的隧道地址），设置会保存在浏览器 localStorage，之后自动连接。
-
-页面 API 探测优先级：手动设置（localStorage）> 同源地址 > 局域网主机 > 本机。本地打开 `index.html` 时行为不变。
-
-## 项目结构
-
-```
-app.py                 # Streamlit 应用（RAG 知识库 + 聊天）
-web/                   # Web 应用 React 源码（Vite + Tailwind + Zustand）
-docs/                  # Web 构建产物（可部署 GitHub Pages）
-download_embedding.py  # 下载多语言 embedding 模型
-datas/                 # 知识库原始文档
-vectors/               # Chroma 向量库（本地生成，不入库）
-start_ollama.bat       # 以 0.0.0.0 启动 Ollama（局域网开放）
-```
+仅供学习交流使用。
